@@ -39,9 +39,7 @@ then
     echo "python /storage/scripts/shutdown.py &" >> /storage/.config/autostart.sh
 else
     echo "SUCCESS! Shutdown Script configured!"
-	echo "Installation done. Will now reboot after 3 seconds."
-	sleep 3
-	reboot
+	echo "Installation done."
 fi
 
 
