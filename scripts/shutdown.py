@@ -1,4 +1,5 @@
 #!/usr/bin/python
+sys.path.append('/storage/lib/')
 import RPi.GPIO as GPIO
 import time
 import subprocess
