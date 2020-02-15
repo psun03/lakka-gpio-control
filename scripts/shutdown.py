@@ -1,77 +1,45 @@
-import sys
-sys.path.append('/storage/lib/')
+#!/usr/bin/python
 import RPi.GPIO as GPIO
-import os
 import time
-from multiprocessing import Process
+import subprocess
 
-#initialize pins
-poweroffPin = 26
-resetPin = 21
-ejectPin = 20
+# we will use the pin numbering to match the pins on the Pi, instead of the 
+# GPIO pin outs (makes it easier to keep track of things)
 
-#initialize GPIO settings
-def init():
-  GPIO.setmode(GPIO.BCM)
-  GPIO.setup(poweroffPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-  GPIO.setup(resetPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-  GPIO.setup(ejectPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-  GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)  
 
-def poweroff():
-  oldState = True
-  while True:
-    GPIO.wait_for_edge(poweroffPin, GPIO.FALLING)
+POWER_BTN_PIN = 3  #power button GPIO Pin 
+RESET_BTN_PIN =	2 #reset button GPIO Pin 
 
-    state = GPIO.input(poweroffPin)
-    if state != oldState and state == False:
+# use the same pin that is used for the reset button (one button to rule them all!)
+GPIO.setup(POWER_BTN_PIN, GPIO.IN, pull_up_down = GPIO.PUD_UP)  	#INPUT:  Setup POWER button
+GPIO.setup(RESET_BTN_PIN, GPIO.IN, pull_up_down = GPIO.PUD_UP)  	#INPUT:  Setup RESET button
 
-      # print 'poweroff'
-      os.system("shutdown -h now")
-      time.sleep(1)
+bounce_time = 2000
+
+#PYTHON Functions
+def Shutdown(channel):
+	for i in range(0,20):
+		time.sleep(0.1)
+		#GPIO.input(POWER_BTN_PIN)
+		os.system("sudo shutdown -h now")
+
+def Reset(channel):
+    pids = [pid for pid in os.listdir('/proc') if pid.isdigit()]
+    for pid in pids:
+	try:
+		commandpath = open(os.path.join('/proc', pid, 'cmdline'), 'rb').read()
+		if commandpath[0:24] == '/opt/retropie/emulators/':
+			os.system('kill -TERM %s' % pid)
+			print('kill -TERM %s ...' % pid)
+			i = 0
+			while i < 10:
+				i = i + 1
+				# probably we should again check here.. but.. nah
+				os.system('kill -KILL %s' % pid)
+				print('kill -KILL %s' % pid)
+	except IOError:
+		continue
     
-
-def reset():
-  oldState = True
-  while True:
-    GPIO.wait_for_edge(resetPin, GPIO.FALLING)
-
-    state = GPIO.input(resetPin)
-    if state != oldState and state == False:
-
-      # print 'reset'
-      os.system("pkill retroarch")
-      time.sleep(1)
-    
-
-
-def eject():
-  oldState = True
-  while True:
-    GPIO.wait_for_edge(ejectPin, GPIO.FALLING)
-
-    state = GPIO.input(ejectPin)
-    if state != oldState and state == False:
-
-      # print 'eject' 
-      os.system("shutdown -r now")
-      time.sleep(1)
-    
-
-
-if __name__ == "__main__":
-  #initialize GPIO settings
-  init()
-  #create a multiprocessing.Process instance for each function to enable parallelism 
-  poweroffProcess = Process(target = poweroff)
-  poweroffProcess.start()
-  resetProcess = Process(target = reset)
-  resetProcess.start()
-  ejectProcess = Process(target = eject)
-  ejectProcess.start()
-
-  poweroffProcess.join()
-  resetProcess.join()
-  ejectProcess.join()
-
-  GPIO.cleanup()
+GPIO.add_event_detect(POWER_BTN_PIN, GPIO.RISING, callback=Shutdown, bouncetime = bounce_time) 
+GPIO.add_event_detect(RESET_BTN_PIN, GPIO.RISING, callback=Reset,bouncetime = bounce_time)
